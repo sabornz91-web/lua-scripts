@@ -1,0 +1,294 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+
+local lp = Players.LocalPlayer
+
+local activated = false
+local keybind = Enum.KeyCode.V
+local power = 300000
+local lagAmount = 0.12
+local lagConn = nil
+local minimized = false
+local waitingForKey = false
+
+local function applyPower(val)
+	power = math.clamp(val, 10000, 500000)
+	local t = (power - 10000) / 490000
+	lagAmount = t * 0.22
+end
+
+applyPower(power)
+
+local function startLag()
+	if lagConn then lagConn:Disconnect() end
+	lagConn = RunService.RenderStepped:Connect(function()
+		if not activated then return end
+		if lagAmount > 0 then
+			local t = tick()
+			while tick() - t < lagAmount do end
+		end
+	end)
+end
+
+local function stopLag()
+	activated = false
+	if lagConn then
+		lagConn:Disconnect()
+		lagConn = nil
+	end
+end
+
+if CoreGui:FindFirstChild("HookSpeedBypass_V2") then
+	CoreGui.HookSpeedBypass_V2:Destroy()
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "EpicnMar_SpeedBypass"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = CoreGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 250, 0, 310)
+MainFrame.Position = UDim2.new(0.5, -125, 0.5, -100)
+MainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+
+local Stroke = Instance.new("UIStroke")
+Stroke.Color = Color3.fromRGB(140, 50, 255)
+Stroke.Thickness = 1.8
+Stroke.Parent = MainFrame
+
+-- Header
+local Header = Instance.new("Frame")
+Header.Name = "Header"
+Header.Size = UDim2.new(1, 0, 0, 45)
+Header.BackgroundTransparency = 1
+Header.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -70, 1, 0)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "EpicnMar Lagger"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 15
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Header
+
+-- Minimize Button
+local MinimizeBtn = Instance.new("TextButton")
+MinimizeBtn.Size = UDim2.new(0, 30, 0, 30)
+MinimizeBtn.Position = UDim2.new(1, -40, 0.5, -15)
+MinimizeBtn.BackgroundTransparency = 1
+MinimizeBtn.Text = "−"
+MinimizeBtn.TextColor3 = Color3.new(1, 1, 1)
+MinimizeBtn.Font = Enum.Font.GothamBold
+MinimizeBtn.TextSize = 20
+MinimizeBtn.Parent = Header
+
+-- Dragging
+local dragging = false
+local dragInput
+local dragStart
+local startPos
+
+local function updateInput(input)
+	local delta = input.Position - dragStart
+	MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+Header.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = MainFrame.Position
+		
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+Header.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if dragging and input == dragInput then
+		updateInput(input)
+	end
+end)
+
+-- ScrollingFrame
+local Scrolling = Instance.new("ScrollingFrame")
+Scrolling.BackgroundTransparency = 1
+Scrolling.Position = UDim2.new(0, 10, 0, 50)
+Scrolling.Size = UDim2.new(1, -20, 1, -60)
+Scrolling.ScrollBarThickness = 0
+Scrolling.CanvasSize = UDim2.new(0, 0, 0, 220)
+Scrolling.Parent = MainFrame
+
+local List = Instance.new("UIListLayout")
+List.SortOrder = Enum.SortOrder.LayoutOrder
+List.Padding = UDim.new(0, 12)
+List.Parent = Scrolling
+
+-- Toggle
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Name = "Toggle"
+ToggleBtn.Size = UDim2.new(1, 0, 0, 45)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+ToggleBtn.Text = "STATUS: DISABLED"
+ToggleBtn.TextColor3 = Color3.fromRGB(180, 80, 255)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.TextSize = 14
+ToggleBtn.AutoButtonColor = false
+ToggleBtn.Parent = Scrolling
+
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(0, 8)
+local TStroke = Instance.new("UIStroke", ToggleBtn)
+TStroke.Thickness = 1
+TStroke.Color = Color3.fromRGB(40, 40, 50)
+
+-- Keybind
+local KBFrame = Instance.new("Frame")
+KBFrame.Size = UDim2.new(1, 0, 0, 35)
+KBFrame.BackgroundTransparency = 1
+KBFrame.Parent = Scrolling
+
+local KBLabel = Instance.new("TextLabel")
+KBLabel.Size = UDim2.new(0.5, 0, 1, 0)
+KBLabel.BackgroundTransparency = 1
+KBLabel.Text = "Toggle Keybind:"
+KBLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+KBLabel.Font = Enum.Font.Gotham
+KBLabel.TextSize = 12
+KBLabel.Parent = KBFrame
+
+local KBButton = Instance.new("TextButton")
+KBButton.Size = UDim2.new(0, 80, 1, 0)
+KBButton.Position = UDim2.new(0.55, 0, 0, 0)
+KBButton.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+KBButton.Text = "V"
+KBButton.TextColor3 = Color3.new(1,1,1)
+KBButton.Font = Enum.Font.GothamBold
+KBButton.TextSize = 13
+KBButton.Parent = KBFrame
+Instance.new("UICorner", KBButton).CornerRadius = UDim.new(0, 6)
+
+-- Power Label + Box
+local PowerLabel = Instance.new("TextLabel")
+PowerLabel.Size = UDim2.new(1, 0, 0, 20)
+PowerLabel.BackgroundTransparency = 1
+PowerLabel.Text = "Bypass Power: 300000"
+PowerLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+PowerLabel.Font = Enum.Font.Gotham
+PowerLabel.TextSize = 13
+PowerLabel.Parent = Scrolling
+
+local PowerBox = Instance.new("TextBox")
+PowerBox.Size = UDim2.new(1, 0, 0, 35)
+PowerBox.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+PowerBox.PlaceholderText = "Enter custom power..."
+PowerBox.Text = "300000"
+PowerBox.TextColor3 = Color3.new(1,1,1)
+PowerBox.Font = Enum.Font.Gotham
+PowerBox.TextSize = 14
+PowerBox.Parent = Scrolling
+Instance.new("UICorner", PowerBox).CornerRadius = UDim.new(0, 8)
+
+-- Discord
+local Discord = Instance.new("TextLabel")
+Discord.Size = UDim2.new(1, 0, 0, 20)
+Discord.BackgroundTransparency = 1
+Discord.Text = "discord.gg/22T6tQfYAD"
+Discord.TextColor3 = Color3.fromRGB(90, 90, 110)
+Discord.TextSize = 10
+Discord.Parent = Scrolling
+
+-- Minimize Function
+local function toggleMinimize()
+	minimized = not minimized
+	if minimized then
+		MinimizeBtn.Text = "+"
+		Scrolling.Visible = false
+		MainFrame.Size = UDim2.new(0, 250, 0, 45)
+	else
+		MinimizeBtn.Text = "−"
+		Scrolling.Visible = true
+		MainFrame.Size = UDim2.new(0, 250, 0, 310)
+	end
+end
+
+MinimizeBtn.MouseButton1Click:Connect(toggleMinimize)
+
+-- Toggle Function
+local function toggle()
+	activated = not activated
+	if activated then
+		ToggleBtn.Text = "STATUS: ENABLED"
+		ToggleBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
+		TStroke.Color = Color3.fromRGB(100, 255, 100)
+		startLag()
+	else
+		ToggleBtn.Text = "STATUS: DISABLED"
+		ToggleBtn.TextColor3 = Color3.fromRGB(180, 80, 255)
+		TStroke.Color = Color3.fromRGB(40, 40, 50)
+		stopLag()
+	end
+end
+
+ToggleBtn.MouseButton1Click:Connect(toggle)
+
+-- Keybind Change
+KBButton.MouseButton1Click:Connect(function()
+	KBButton.Text = "..."
+	waitingForKey = true
+end)
+
+-- Input
+UserInputService.InputBegan:Connect(function(input, gp)
+	if gp then return end
+	
+	if waitingForKey and input.UserInputType == Enum.UserInputType.Keyboard then
+		keybind = input.KeyCode
+		KBButton.Text = keybind.Name
+		waitingForKey = false
+		return
+	end
+	
+	if input.KeyCode == keybind then
+		toggle()
+	end
+end)
+
+-- Power Box
+PowerBox.FocusLost:Connect(function()
+	local num = tonumber(PowerBox.Text)
+	if num then
+		applyPower(num)
+		PowerLabel.Text = "Bypass Power: " .. power
+		PowerBox.Text = tostring(power)
+	end
+end)
+
+-- Respawn
+lp.CharacterAdded:Connect(function()
+	task.wait(1)
+	if activated then
+		stopLag()
+		startLag()
+	end
+end)
